@@ -41,3 +41,27 @@ class CityJsonLoaderDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+    
+    def reset_fields(self):
+        """Reset the fields in the dialog."""
+        self.listWidget.clear()
+        self.cityjsonVersionLineEdit.clear()
+        self.compressedLineEdit.clear()
+        self.crsLineEdit.clear()
+
+        # Clear metadata box
+        self.metadataTreeView.setModel(None)
+        
+         # Reset checkboxes and disable them
+        self.inheritParentAttributesCheckBox.setChecked(False)
+        self.splitByTypeCheckBox.setChecked(False)
+        self.semanticsLoadingCheckBox.setChecked(False)
+        self.semanticSurfacesStylingCheckBox.setChecked(False)
+        self.inheritParentAttributesCheckBox.setEnabled(False)
+        self.splitByTypeCheckBox.setEnabled(False)
+        self.semanticsLoadingCheckBox.setEnabled(False)
+        self.semanticSurfacesStylingCheckBox.setEnabled(False)
+        
+        # Reset Lod checkboxes
+        self.loDLoadingComboBox.setCurrentIndex(0)
+        self.loDSelectionComboBox.setCurrentIndex(0)

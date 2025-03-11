@@ -354,6 +354,7 @@ class CityJsonLoader:
 
     def run(self):
         """Run method that performs all the real work"""
+        self.dlg.reset_fields()
         self.dlg.show()
         self.dlg.changeCrsPushButton.setEnabled(False)
         self.dlg.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
