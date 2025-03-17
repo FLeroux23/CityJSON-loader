@@ -151,8 +151,8 @@ dclean:
 	@echo "-----------------------------------"
 	@echo "Removing any compiled python files."
 	@echo "-----------------------------------"
-	find $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME) -iname "*.pyc" -delete
-	find $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME) -iname ".git" -prune -exec rm -Rf {} \;
+	find "$(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)" -iname "*.pyc" -delete
+	find "$(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)" -iname ".git" -prune -exec rm -Rf {} \;
 
 
 derase:
@@ -170,7 +170,8 @@ zip: deploy dclean
 	# The zip target deploys the plugin and creates a zip file with the deployed
 	# content. You can then upload the zip file on http://plugins.qgis.org
 	rm -f $(PLUGINNAME).zip
-	cd $(HOME)/$(QGISDIR)/python/plugins; zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME)
+	cp  LICENSE "$(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)/LICENSE"
+	cd "$(HOME)/$(QGISDIR)/python/plugins"; zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME) -x ".*" "__pycache__/*" "**/__pycache__/*"
 
 package: compile
 	# Create a zip package of the plugin named $(PLUGINNAME).zip.
