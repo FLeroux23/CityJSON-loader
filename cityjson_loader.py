@@ -89,12 +89,14 @@ class CityJsonLoader:
         self.toolbar = self.iface.addToolBar(u'CityJsonLoader')
         self.toolbar.setObjectName(u'CityJsonLoader')
 
+        self.file_epsg_map = {}
+     
         self.delete_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self.dlg)
         self.delete_shortcut.activated.connect(self.remove_cityjson_files)
 
+        self.dlg.listWidget.itemSelectionChanged.connect(self.update_file_list)
         self.dlg.browseFilesButton.clicked.connect(self.select_cityjson_files)
         self.dlg.browseDirectoryButton.clicked.connect(self.select_cityjson_files_directory)
-        self.dlg.listWidget.itemSelectionChanged.connect(self.update_file_list)
         self.dlg.removeFilesButton.clicked.connect(self.remove_cityjson_files)
 
         self.dlg.changeCrsPushButton.clicked.connect(self.select_crs)
@@ -107,34 +109,38 @@ class CityJsonLoader:
         self.provider = Provider()
         QgsApplication.processingRegistry().addProvider(self.provider)
 
+    def add_cityjson_files(self, filepaths):
+        """adds given CityJSON files to the widget and processes them."""
+        for filename in filepaths:
+            existing_items = self.dlg.listWidget.findItems(filename, Qt.MatchExactly)
+            if not existing_items:
+                self.dlg.listWidget.addItem(filename)
+                epsg = self.load_file_crs(filename)
+                self.file_epsg_map[filename] = epsg
+                
+        if self.dlg.listWidget.count() > 0:
+            self.dlg.listWidget.setCurrentRow(0)
+            self.update_file_list()
+
+        self.update_file_count_label()
+ 
     def select_cityjson_files(self):
         """Shows a dialog to select CityJSON file(s)"""
         filenames, _ = QFileDialog.getOpenFileNames(self.dlg, "Select CityJSON File(s)", "", "*.json")
 
         if filenames:
-            for filename in filenames:
-                existing_items = self.dlg.listWidget.findItems(filename, QtCore.Qt.MatchExactly)
-
-                if not existing_items:
-                    self.dlg.listWidget.addItem(filename)
-
-            self.dlg.listWidget.setCurrentRow(0)
+            self.add_cityjson_files(filenames)
 
     def select_cityjson_files_directory(self):
         """Shows a dialog to select CityJSON file(s)"""
         directory = QFileDialog.getExistingDirectory(self.dlg, "Select Directory", "", QFileDialog.ShowDirsOnly)
 
-        if not directory:
-            self.dlg.listWidget.clear()
-        else:
+        if directory:
             filenames = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.json')]
-
             if filenames:
                 self.dlg.listWidget.clear()
-                self.dlg.listWidget.addItems(filenames)
-                self.dlg.listWidget.setCurrentRow(0)
+                self.add_cityjson_files(filenames)
             else:
-
                 self.dlg.listWidget.clear()
 
     def remove_cityjson_files(self):
@@ -142,8 +148,9 @@ class CityJsonLoader:
         selected_items = self.dlg.listWidget.selectedItems()
         if selected_items:
             for item in selected_items:
-                row = self.dlg.listWidget.row(item)
-                self.dlg.listWidget.takeItem(row)
+                self.dlg.listWidget.takeItem(self.dlg.listWidget.row(item))
+                filename = item.text()
+                self.file_epsg_map.pop(filename, None)
 
             if self.dlg.listWidget.count() > 0:
                 self.dlg.listWidget.setCurrentRow(0)
@@ -151,6 +158,23 @@ class CityJsonLoader:
             else:
                 self.clear_file_information()
 
+        self.update_file_count_label()
+
+    def update_file_count_label(self):
+        """Updates the file count label to reflect the number of selected files"""
+        count = self.dlg.listWidget.count()
+        self.dlg.fileCountLabel.setText(f"{count} file(s) selected")
+ 
+    def load_file_crs(self, filename):
+        """Load the CRS for the CityJSON file"""
+        try:
+            with open(filename, encoding='utf-8-sig') as fstream:
+                model = json.load(fstream)
+                epsg = get_model_epsg(model)
+                return epsg
+        except Exception as e:
+            return "None"
+ 
     def update_file_list(self):
         """Update metadata fields according to the file selected"""
         selected_item = self.dlg.listWidget.currentItem()
@@ -163,14 +187,26 @@ class CityJsonLoader:
         """Shows a dialog to select a new CRS for the model"""
         crs_dialog = QgsProjectionSelectionDialog()
         crs_dialog.setShowNoProjection(True)
-        if self.dlg.crsLineEdit.text() != "None":
-            old_crs = QgsCoordinateReferenceSystem("EPSG:{}".format(self.dlg.crsLineEdit.text()))
-            crs_dialog.setCrs(old_crs)
+     
+        current_item = self.dlg.listWidget.currentItem()
+        if current_item:
+            current_file = current_item.text()
+            current_crs = self.file_epsg_map.get(current_file, None)
+            if current_crs:
+                old_crs = QgsCoordinateReferenceSystem("EPSG:{}".format(self.dlg.crsLineEdit.text()))
+                crs_dialog.setCrs(old_crs)
+        
         crs_dialog.exec()
-        if crs_dialog.crs().postgisSrid() == 0:
+        new_crs_id = crs_dialog.crs().postgisSrid()
+        
+        if new_crs_id == 0:
             self.dlg.crsLineEdit.setText("None")
         else:
-            self.dlg.crsLineEdit.setText("{}".format(crs_dialog.crs().postgisSrid()))
+            self.dlg.crsLineEdit.setText(str(new_crs_id))
+            
+        if current_item:
+            filename = current_item.text()
+            self.file_epsg_map[filename] = str(new_crs_id)
 
     def semantics_loading_changed(self):
         """Update the GUI according to the new state of semantic surfaces loading"""
@@ -191,28 +227,19 @@ class CityJsonLoader:
     def update_file_information(self, filename):
         """Update metadata fields according to the file provided"""
         try:
-            fstream = open(filename, encoding='utf-8-sig')
-            model = json.load(fstream)
-            fstream.close()
+            with open(filename, encoding='utf-8-sig') as fstream:
+                model = json.load(fstream)
 
-            lods = set()
-            for _, city_object in model['CityObjects'].items():
-                if 'geometry' in city_object:
-                    for geom in city_object['geometry']:
-                        if 'lod' in geom:
-                            lods.add(geom['lod'])
-
+            lods = {geom['lod'] for city_object in model['CityObjects'].values() if 'geometry' in city_object for geom in city_object['geometry'] if 'lod' in geom}
+            
             self.dlg.cityjsonVersionLineEdit.setText(model["version"])
             self.dlg.compressedLineEdit.setText("Yes" if "transform" in model else "No")
+            self.dlg.crsLineEdit.setText(self.file_epsg_map[filename])
+            
+            metadata = model.get("metadata", {"metadata missing": "There is no metadata in this file"})
 
-            if "metadata" in model:
-                self.dlg.crsLineEdit.setText(get_model_epsg(model))
-                metadata = model["metadata"]
-
-                if "+metadata-extended" in model:
-                    metadata = {**metadata, **model["+metadata-extended"]}
-            else:
-                metadata = {"Medata missing": "There is no metadata in this file"}
+            if "+metadata-extended" in model:
+                metadata.update(model["+metadata-extended"])
 
             self.dlg.changeCrsPushButton.setEnabled(True)
             self.dlg.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
@@ -229,10 +256,7 @@ class CityJsonLoader:
             self.dlg.loDLoadingComboBox.setEnabled(True)
             self.dlg.loDSelectionComboBox.clear()
             self.dlg.loDSelectionComboBox.addItem("All")
-
-            if lods:
-                self.dlg.loDSelectionComboBox.addItems(sorted(list(lods)))
-
+            self.dlg.loDSelectionComboBox.addItems(sorted(lods) if lods else [])
             self.dlg.loDSelectionComboBox.setEnabled(len(lods) > 0)
 
         except Exception as exp:
@@ -399,7 +423,7 @@ class CityJsonLoader:
 
         loader = CityJSONLoader(filepath,
                                 citymodel,
-                                epsg=self.dlg.crsLineEdit.text(),
+                                epsg=self.file_epsg_map.get(filepath, self.dlg.crsLineEdit.text()),
                                 keep_parent_attributes=self.dlg.inheritParentAttributesCheckBox.isChecked(),
                                 divide_by_object=self.dlg.splitByTypeCheckBox.isChecked(),
                                 lod_as=lod_as,
