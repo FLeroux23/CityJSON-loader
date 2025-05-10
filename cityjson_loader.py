@@ -121,6 +121,8 @@ class CityJsonLoader:
         if self.dlg.listWidget.count() > 0:
             self.dlg.listWidget.setCurrentRow(0)
             self.update_file_list()
+
+        self.update_file_count_label()
  
     def select_cityjson_files(self):
         """Shows a dialog to select CityJSON file(s)"""
@@ -155,6 +157,8 @@ class CityJsonLoader:
                 self.update_file_list()
             else:
                 self.clear_file_information()
+
+        self.update_file_count_label()
 
     def load_file_crs(self, filename):
         """Load the CRS for the CityJSON file"""
