@@ -160,6 +160,11 @@ class CityJsonLoader:
 
         self.update_file_count_label()
 
+    def update_file_count_label(self):
+        """Updates the file count label to reflect the number of selected files"""
+        count = self.dlg.listWidget.count()
+        self.dlg.fileCountLabel.setText(f"{count} file(s) selected")
+ 
     def load_file_crs(self, filename):
         """Load the CRS for the CityJSON file"""
         try:
