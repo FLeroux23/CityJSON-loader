@@ -179,7 +179,21 @@ class CityJsonLoader:
         """Update metadata fields according to the file selected"""
         selected_item = self.dlg.listWidget.currentItem()
         if selected_item:
-            self.update_file_information(selected_item.text())
+            filename = selected_item.text()
+            if not os.path.exists(filename):
+                items = self.dlg.listWidget.findItems(filename, Qt.MatchExactly)
+                for item in items:
+                    self.dlg.listWidget.takeItem(self.dlg.listWidget.row(item))
+                self.file_epsg_map.pop(filename, None)
+                self.update_file_count_label()
+                
+                if self.dlg.listWidget.count() > 0:
+                    self.dlg.listWidget.setCurrentRow(0)
+                    self.update_file_list()
+                else:
+                    self.clear_file_information()
+            else:
+                self.update_file_information(filename)
         else:
             self.clear_file_information()
 
@@ -378,8 +392,8 @@ class CityJsonLoader:
 
     def run(self):
         """Run method that performs all the real work"""
+        self.update_file_count_label()   
         self.dlg.reset_fields()
-        self.update_file_count_label()
         self.dlg.show()
         self.dlg.changeCrsPushButton.setEnabled(False)
         self.dlg.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
