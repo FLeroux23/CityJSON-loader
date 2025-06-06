@@ -177,25 +177,29 @@ class CityJsonLoader:
  
     def update_file_list(self):
         """Update metadata fields according to the file selected"""
-        selected_item = self.dlg.listWidget.currentItem()
-        if selected_item:
-            filename = selected_item.text()
-            if not os.path.exists(filename):
-                items = self.dlg.listWidget.findItems(filename, Qt.MatchExactly)
-                for item in items:
-                    self.dlg.listWidget.takeItem(self.dlg.listWidget.row(item))
-                self.file_epsg_map.pop(filename, None)
-                self.update_file_count_label()
-                
-                if self.dlg.listWidget.count() > 0:
-                    self.dlg.listWidget.setCurrentRow(0)
-                    self.update_file_list()
+        self.dlg.listWidget.blockSignals(True)
+        try:
+            selected_item = self.dlg.listWidget.currentItem()
+            if selected_item:
+                filename = selected_item.text()
+                if not os.path.exists(filename):
+                    items = self.dlg.listWidget.findItems(filename, Qt.MatchExactly)
+                    for item in items:
+                        self.dlg.listWidget.takeItem(self.dlg.listWidget.row(item))
+                    self.file_epsg_map.pop(filename, None)
+                    self.update_file_count_label()
+                    
+                    if self.dlg.listWidget.count() > 0:
+                        self.dlg.listWidget.setCurrentRow(0)
+                        self.update_file_list()
+                    else:
+                        self.clear_file_information()
                 else:
-                    self.clear_file_information()
+                    self.update_file_information(filename)
             else:
-                self.update_file_information(filename)
-        else:
-            self.clear_file_information()
+                self.clear_file_information()
+        finally:
+            self.dlg.listWidget.blockSignals(False)
 
     def select_crs(self):
         """Shows a dialog to select a new CRS for the model"""
