@@ -2,7 +2,7 @@
 
 ## Key Updates:
 - **New feature(s)**:
-     - **Multi-File Loading**: The plugin now supports processing <ins>multiple CityJSON files at once</ins>. The GUI has been modified to allow the selection and display of multiple files in a dynamic list. When a file is selected from the list, its metadata is dynamically updated in the metadata field.
+     - **Multi-File Loading**: The plugin now supports processing <ins>multiple CityJSON files at once (.city.json)</ins>. The GUI has been modified to allow the selection and display of multiple files in a dynamic list. When a file is selected from the list, its metadata is dynamically updated in the metadata field.
      - **Control Inheritance of Attributes**: Added a CheckBox to control whether <ins>child objects</ins> inherit <ins>parent attributes</ins>.
      - **LoD Selection**: Added a ComboBox to select a specific LoD to import (e.g., "All", "1.2, "1.3", "2.2", etc.).
      - **New semantic surface attributes**: Support for <ins>additional semantic surface attributes</ins> when loading a CityJSON file using option *Load semantic surfaces (as individual features)*.
