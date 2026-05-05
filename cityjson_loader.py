@@ -207,17 +207,28 @@ class CityJsonLoader:
             oldest_key = next(iter(self.citymodel_cache))
             del self.citymodel_cache[oldest_key]
  
+    def _get_cached_model(self, filepath):
+        """Return cached model if it exists and the file hasn't been modified, else None."""
+        if filepath in self.citymodel_cache:
+            cached_mtime, model = self.citymodel_cache[filepath]
+            if cached_mtime == os.path.getmtime(filepath):
+                return model
+            del self.citymodel_cache[filepath]
+        return None
+
+    def _cache_model(self, filepath, model):
+        """Store a model in the cache alongside its current mtime."""
+        self.citymodel_cache[filepath] = (os.path.getmtime(filepath), model)
+        self._manage_cache_size()
+ 
     def load_file_crs(self, filename):
         """Load the CRS for the CityJSON file"""
         try:
-            if filename in self.citymodel_cache:
-                model = self.citymodel_cache[filename]
-            else:
+            model = self._get_cached_model(filename)
+            if model is None:
                 with open(filename, encoding='utf-8-sig') as fstream:
                     model = json.load(fstream)
-                    # Cache the model for reuse
-                    self.citymodel_cache[filename] = model
-                    self._manage_cache_size()
+                    self._cache_model(filename, model)
             
             epsg = get_model_epsg(model)
             return epsg
@@ -294,14 +305,11 @@ class CityJsonLoader:
     def update_file_information(self, filename):
         """Update metadata fields according to the file provided"""
 
-        if filename in self.citymodel_cache:
-            model = self.citymodel_cache[filename]
-        else:
+        model = self._get_cached_model(filename)
+        if model is None:
             with open(filename, encoding='utf-8-sig') as fstream:
                 model = json.load(fstream)
-                # Cache the model for reuse
-                self.citymodel_cache[filename] = model
-                self._manage_cache_size()
+                self._cache_model(filename, model)
 
         lods = {geom['lod'] for city_object in model['CityObjects'].values() if 'geometry' in city_object for geom in city_object['geometry'] if 'lod' in geom}
         
@@ -327,9 +335,17 @@ class CityJsonLoader:
         """Get translation for a string using Qt translation API"""
         return QCoreApplication.translate('CityJsonLoader', message)
 
-    def add_action(self, icon_path, text, callback, enabled_flag=True, 
-                   add_to_menu=True, add_to_toolbar=True, status_tip=None, 
-                   whats_this=None, parent=None):
+    def add_action(
+        self,
+        icon_path,
+        text,
+        callback,
+        enabled_flag=True,
+        add_to_menu=True,
+        add_to_toolbar=True,
+        status_tip=None,
+        whats_this=None,
+        parent=None):
         """Add an action to the toolbar and/or menu"""
 
         icon = QIcon(icon_path)
@@ -481,21 +497,14 @@ class CityJsonLoader:
         
         # Reset progress bar after a short delay
         QTimer.singleShot(2000, lambda: self.dlg.progressBar.setValue(0))
-
-    def reset_progress_format_on_ui_change(self):
-        """Reset progress bar format when UI elements change"""           
-        if self.dlg.progressBar.format() == "Complete":
-            self.dlg.progressBar.setFormat("%p%")
+        QTimer.singleShot(2000, lambda: self.dlg.progressBar.setFormat("%p%"))
  
     def load_cityjson(self, filepath):
         """Loads the given CityJSON"""
-        if filepath in self.citymodel_cache:
-            citymodel = self.citymodel_cache[filepath]
-        else:
+        citymodel = self._get_cached_model(filepath)
+        if citymodel is None:
             citymodel = load_cityjson_model(filepath)
-            # Cache the model for potential reuse
-            self.citymodel_cache[filepath] = citymodel
-            self._manage_cache_size()
+            self._cache_model(filepath, citymodel)
 
         lod_as = 'NONE'
         if self.dlg.loDLoadingComboBox.currentIndex() == 1:
